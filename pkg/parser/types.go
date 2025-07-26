@@ -30,18 +30,9 @@ func (p *Parser) parseTypeExpression() *ast.TypeExpression {
 		return type_expr
 	}
 
-	// Handle tuple types (A, B, C)
+	// Handle parenthesized types - could be tuple or function parameters
 	if p.curTokenIs(lexer.LPAREN) {
-		p.nextToken()
-		for !p.curTokenIs(lexer.RPAREN) && !p.curTokenIs(lexer.EOF) {
-			tupleType := p.parseTypeExpression()
-			type_expr.Tuple = append(type_expr.Tuple, *tupleType)
-			if p.peekTokenIs(lexer.COMMA) {
-				p.nextToken()
-			}
-			p.nextToken()
-		}
-		return type_expr
+		return p.parseParenthesizedType()
 	}
 
 	// Handle function types (A, B) -> C
@@ -108,4 +99,66 @@ func (p *Parser) parseFunctionParameters() []*ast.Parameter {
 	}
 
 	return identifiers
+}
+
+// parseParenthesizedType handles both tuple types and function parameter lists
+func (p *Parser) parseParenthesizedType() *ast.TypeExpression {
+	type_expr := &ast.TypeExpression{Token: p.curToken}
+	
+	p.nextToken() // consume '('
+	
+	// Empty parentheses
+	if p.curTokenIs(lexer.RPAREN) {
+		p.nextToken()
+		// Check if this is a function type: () -> ReturnType
+		if p.curTokenIs(lexer.ARROW) {
+			return p.parseFunctionType([]ast.TypeExpression{})
+		}
+		// Empty tuple
+		return type_expr
+	}
+	
+	// Parse first type
+	var types []ast.TypeExpression
+	firstType := p.parseTypeExpression()
+	types = append(types, *firstType)
+	
+	// Parse remaining types
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // consume ','
+		p.nextToken() // move to next type
+		nextType := p.parseTypeExpression()
+		types = append(types, *nextType)
+	}
+	
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+	
+	// Check what comes after parentheses
+	if p.peekTokenIs(lexer.ARROW) {
+		// This is a function type: (A, B) -> C
+		p.nextToken() // consume '->'
+		return p.parseFunctionType(types)
+	}
+	
+	// This is a tuple type: (A, B, C)
+	type_expr.Tuple = types
+	return type_expr
+}
+
+// parseFunctionType parses function types: paramTypes -> returnType
+func (p *Parser) parseFunctionType(paramTypes []ast.TypeExpression) *ast.TypeExpression {
+	type_expr := &ast.TypeExpression{Token: p.curToken}
+	
+	p.nextToken() // move to return type
+	returnType := p.parseTypeExpression()
+	
+	funcType := &ast.FunctionType{
+		Parameters: paramTypes,
+		ReturnType: returnType,
+	}
+	
+	type_expr.Function = funcType
+	return type_expr
 }

@@ -16,7 +16,9 @@ func (p *Parser) parseExpression(precedence Precedence) ast.Expression {
 	}
 	leftExp := prefix()
 
-	for !p.peekTokenIs(lexer.SEMICOLON) && precedence < p.peekPrecedence() {
+	for !p.peekTokenIs(lexer.SEMICOLON) && !p.peekTokenIs(lexer.RPAREN) && 
+		!p.peekTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.RBRACKET) && 
+		!p.peekTokenIs(lexer.COMMA) && precedence < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
@@ -31,6 +33,13 @@ func (p *Parser) parseExpression(precedence Precedence) ast.Expression {
 
 // Prefix expression parsers
 func (p *Parser) parseIdentifier() ast.Expression {
+	// Check if this identifier is a known C function
+	if p.cRegistry.IsFunction(p.curToken.Literal) {
+		// For now, treat it as a regular identifier
+		// In the future, we might want to create a special CFunctionIdentifier node
+		return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+	
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
@@ -73,6 +82,11 @@ func (p *Parser) parseBooleanLiteral() ast.Expression {
 func (p *Parser) parseNullLiteral() ast.Expression {
 	return &ast.NullLiteral{Token: p.curToken}
 }
+
+func (p *Parser) parseWildcardExpression() ast.Expression {
+	return &ast.WildcardExpression{Token: p.curToken}
+}
+
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
 	expression := &ast.PrefixExpression{
@@ -132,8 +146,38 @@ func (p *Parser) parseTupleLiteral(firstElement ast.Expression) ast.Expression {
 
 func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
+	
+	// Check if this is a typed empty array like []int
+	if p.peekTokenIs(lexer.RBRACKET) {
+		p.nextToken() // consume ]
+		
+		// Check if followed by a type
+		if p.isTypeToken(p.peekToken.Type) {
+			p.nextToken() // move to the type
+			// For now, we'll just parse this as an empty array
+			// In the future, we might want to store the type information
+			return array
+		}
+		
+		// Just an empty array []
+		return array
+	}
+	
 	array.Elements = p.parseExpressionList(lexer.RBRACKET)
 	return array
+}
+
+func (p *Parser) isTypeToken(tokenType lexer.TokenType) bool {
+	switch tokenType {
+	case lexer.INT_TYPE, lexer.LONG_TYPE, lexer.FLOAT_TYPE, lexer.DOUBLE_TYPE,
+		 lexer.BOOL_TYPE, lexer.STRING_TYPE, lexer.VOID_TYPE,
+		 lexer.I8_TYPE, lexer.I16_TYPE, lexer.I32_TYPE, lexer.I64_TYPE,
+		 lexer.U8_TYPE, lexer.U16_TYPE, lexer.U32_TYPE, lexer.U64_TYPE,
+		 lexer.F32_TYPE, lexer.F64_TYPE, lexer.BYTE_TYPE:
+		return true
+	default:
+		return false
+	}
 }
 
 // Infix expression parsers
@@ -211,20 +255,30 @@ func (p *Parser) parseDotExpression(left ast.Expression) ast.Expression {
 func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {
 	args := []ast.Expression{}
 
+	// If next token is the end token, we have an empty list
 	if p.peekTokenIs(end) {
 		p.nextToken()
 		return args
 	}
 
+	// Move to the first argument
 	p.nextToken()
+	
+	// Don't try to parse if we're already at the end
+	if p.curTokenIs(end) {
+		return args
+	}
+	
 	args = append(args, p.parseExpression(LOWEST))
 
+	// Parse additional arguments separated by commas
 	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken()
-		p.nextToken()
+		p.nextToken() // consume comma
+		p.nextToken() // move to next argument
 		args = append(args, p.parseExpression(LOWEST))
 	}
 
+	// Expect the end token
 	if !p.expectPeek(end) {
 		return nil
 	}
@@ -268,9 +322,50 @@ func (p *Parser) parseIfExpression() ast.Expression {
 }
 
 func (p *Parser) parseMatchExpression() ast.Expression {
-	// TODO: Implement match expression parsing with patterns
-	// This requires extending the AST to include match expressions and patterns
-	return nil
+	expr := &ast.MatchExpression{Token: p.curToken}
+
+	p.nextToken()
+	expr.Value = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	expr.Cases = []*ast.MatchCase{}
+
+	p.nextToken()
+	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+		matchCase := p.parseMatchCase()
+		if matchCase != nil {
+			expr.Cases = append(expr.Cases, matchCase)
+		}
+		p.nextToken()
+	}
+
+	return expr
+}
+
+func (p *Parser) parseMatchCase() *ast.MatchCase {
+	matchCase := &ast.MatchCase{}
+
+	// Parse pattern (left side of =>)
+	matchCase.Pattern = p.parseExpression(LOWEST)
+
+	// Check for guard clause (if condition)
+	if p.peekTokenIs(lexer.IF) {
+		p.nextToken() // consume 'if'
+		p.nextToken() // move to the guard expression
+		matchCase.Guard = p.parseExpression(LOWEST)
+	}
+
+	if !p.expectPeek(lexer.DARROW) { // => token
+		return nil
+	}
+
+	p.nextToken()
+	matchCase.Value = p.parseExpression(LOWEST)
+
+	return matchCase
 }
 
 func (p *Parser) parseFunctionLiteral() ast.Expression {

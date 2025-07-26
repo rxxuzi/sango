@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/rxxuzi/sango/pkg/ast"
+	"github.com/rxxuzi/sango/pkg/cinterop"
 	"github.com/rxxuzi/sango/pkg/lexer"
 )
 
@@ -98,6 +99,9 @@ type Parser struct {
 	// Parsing functions
 	prefixParseFns map[lexer.TokenType]prefixParseFn
 	infixParseFns  map[lexer.TokenType]infixParseFn
+	
+	// C function registry
+	cRegistry *cinterop.FunctionRegistry
 }
 
 // Function types for Pratt parsing
@@ -109,8 +113,9 @@ type (
 // New creates a new parser instance
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
-		l:      l,
-		errors: []string{},
+		l:         l,
+		errors:    []string{},
+		cRegistry: cinterop.NewFunctionRegistry(),
 	}
 
 	// Initialize prefix parse functions
@@ -122,6 +127,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.TRUE, p.parseBooleanLiteral)
 	p.registerPrefix(lexer.FALSE, p.parseBooleanLiteral)
 	p.registerPrefix(lexer.NULL, p.parseNullLiteral)
+	p.registerPrefix(lexer.UNDERSCORE, p.parseWildcardExpression)
 	p.registerPrefix(lexer.NOT, p.parsePrefixExpression)
 	p.registerPrefix(lexer.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(lexer.TILDE, p.parsePrefixExpression)

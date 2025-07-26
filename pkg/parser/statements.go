@@ -30,6 +30,10 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseImportStatement()
 	case lexer.DEFINE:
 		return p.parseDefineStatement()
+	case lexer.FOR:
+		return p.parseForStatement()
+	case lexer.WHILE:
+		return p.parseWhileStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -117,9 +121,47 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	return stmt
 }
 
-func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+func (p *Parser) parseExpressionStatement() ast.Statement {
+	// Check if this is an assignment statement
+	if p.curTokenIs(lexer.IDENT) && p.isAssignmentOperator(p.peekToken.Type) {
+		return p.parseAssignmentStatement()
+	}
+	
+	// Otherwise, it's a regular expression statement
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+func (p *Parser) isAssignmentOperator(tokenType lexer.TokenType) bool {
+	switch tokenType {
+	case lexer.ASSIGN, lexer.PLUSASSIGN, lexer.MINUSASSIGN, lexer.ASTERISKASSIGN,
+		 lexer.SLASHASSIGN, lexer.PERCENTASSIGN, lexer.AMPERSANDASSIGN, 
+		 lexer.PIPEASSIGN, lexer.CARETASSIGN, lexer.LSHIFTASSIGN, lexer.RSHIFTASSIGN:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
+	stmt := &ast.AssignmentStatement{Token: p.curToken}
+	
+	// Parse the identifier being assigned to
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	
+	// Move to the assignment operator
+	p.nextToken()
+	stmt.Operator = p.curToken.Literal
+	
+	// Parse the value expression
+	p.nextToken()
+	stmt.Value = p.parseExpression(LOWEST)
 
 	if p.peekTokenIs(lexer.SEMICOLON) {
 		p.nextToken()
@@ -280,6 +322,10 @@ func (p *Parser) parseIncludeStatement() ast.Statement {
 	}
 
 	stmt.Path = p.curToken.Literal
+	
+	// Register C functions from the included header
+	p.cRegistry.IncludeHeader(stmt.Path)
+	
 	return stmt
 }
 
@@ -343,5 +389,59 @@ func (p *Parser) parseFunctionStatement() *ast.FunctionStatement {
 	p.nextToken()
 	stmt.Body = p.parseExpression(0)
 
+	return stmt
+}
+
+func (p *Parser) parseForStatement() ast.Statement {
+	stmt := &ast.ForStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	stmt.Variable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Check for <- or 'in'
+	if p.expectPeek(lexer.LARROW) {
+		// for x <- iterable
+		stmt.IsInRange = false
+	} else if p.expectPeek(lexer.IN) {
+		// for i in range
+		stmt.IsInRange = true
+	} else {
+		p.addError("expected '<-' or 'in' after for variable")
+		return nil
+	}
+
+	p.nextToken()
+	stmt.Iterable = p.parseExpression(0)
+
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	stmt.Body = p.parseBlockStatement()
+	return stmt
+}
+
+func (p *Parser) parseWhileStatement() ast.Statement {
+	stmt := &ast.WhileStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	p.nextToken()
+	stmt.Condition = p.parseExpression(0)
+
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	stmt.Body = p.parseBlockStatement()
 	return stmt
 }

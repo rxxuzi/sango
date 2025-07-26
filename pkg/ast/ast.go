@@ -123,6 +123,27 @@ func (rs *ReturnStatement) String() string {
 	return out.String()
 }
 
+// AssignmentStatement represents identifier = expression
+type AssignmentStatement struct {
+	Token    lexer.Token // the assignment token
+	Name     *Identifier
+	Operator string      // =, +=, -=, etc.
+	Value    Expression
+}
+
+func (as *AssignmentStatement) statementNode()       {}
+func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
+func (as *AssignmentStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(as.Name.String())
+	out.WriteString(" " + as.Operator + " ")
+	if as.Value != nil {
+		out.WriteString(as.Value.String())
+	}
+	out.WriteString(";")
+	return out.String()
+}
+
 // ExpressionStatement is a statement consisting of a single expression
 type ExpressionStatement struct {
 	Token      lexer.Token // the first token of the expression
@@ -260,6 +281,50 @@ func (ds *DefineStatement) String() string {
 	return ds.TokenLiteral() + " " + ds.Name.String() + " " + ds.Value
 }
 
+// ForStatement represents for loops: for x <- iterable { ... } or for i in range { ... }
+type ForStatement struct {
+	Token      lexer.Token // the 'for' token
+	Variable   *Identifier
+	Iterable   Expression
+	Body       *BlockStatement
+	IsInRange  bool // true for 'for i in range', false for 'for x <- iterable'
+}
+
+func (fs *ForStatement) statementNode()       {}
+func (fs *ForStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *ForStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(fs.TokenLiteral() + " ")
+	out.WriteString(fs.Variable.String())
+	if fs.IsInRange {
+		out.WriteString(" in ")
+	} else {
+		out.WriteString(" <- ")
+	}
+	out.WriteString(fs.Iterable.String())
+	out.WriteString(" ")
+	out.WriteString(fs.Body.String())
+	return out.String()
+}
+
+// WhileStatement represents while loops: while condition { ... }
+type WhileStatement struct {
+	Token     lexer.Token // the 'while' token
+	Condition Expression
+	Body      *BlockStatement
+}
+
+func (ws *WhileStatement) statementNode()       {}
+func (ws *WhileStatement) TokenLiteral() string { return ws.Token.Literal }
+func (ws *WhileStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(ws.TokenLiteral() + " ")
+	out.WriteString(ws.Condition.String())
+	out.WriteString(" ")
+	out.WriteString(ws.Body.String())
+	return out.String()
+}
+
 // IntegerLiteral represents an integer literal
 type IntegerLiteral struct {
 	Token lexer.Token
@@ -308,6 +373,15 @@ type NullLiteral struct {
 func (n *NullLiteral) expressionNode()      {}
 func (n *NullLiteral) TokenLiteral() string { return n.Token.Literal }
 func (n *NullLiteral) String() string       { return "null" }
+
+// WildcardExpression represents _ (wildcard pattern)
+type WildcardExpression struct {
+	Token lexer.Token
+}
+
+func (w *WildcardExpression) expressionNode()      {}
+func (w *WildcardExpression) TokenLiteral() string { return w.Token.Literal }
+func (w *WildcardExpression) String() string       { return "_" }
 
 // PrefixExpression represents !expression or -expression
 type PrefixExpression struct {
@@ -498,6 +572,28 @@ func (ce *CallExpression) String() string {
 	return out.String()
 }
 
+// BuiltinFunctionCall represents builtin functions like printf
+type BuiltinFunctionCall struct {
+	Token     lexer.Token // The function name token
+	Name      string      // Function name (e.g., "printf")
+	Arguments []Expression
+}
+
+func (bfc *BuiltinFunctionCall) expressionNode()      {}
+func (bfc *BuiltinFunctionCall) TokenLiteral() string { return bfc.Token.Literal }
+func (bfc *BuiltinFunctionCall) String() string {
+	var out bytes.Buffer
+	args := []string{}
+	for _, a := range bfc.Arguments {
+		args = append(args, a.String())
+	}
+	out.WriteString(bfc.Name)
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+	return out.String()
+}
+
 // ArrayLiteral represents [1, 2, 3]
 type ArrayLiteral struct {
 	Token    lexer.Token // the '[' token
@@ -616,4 +712,41 @@ func (sl *StructLiteral) String() string {
 	out.WriteString(strings.Join(fields, ", "))
 	out.WriteString(" }")
 	return out.String()
+}
+
+// MatchExpression represents match expr { patterns }
+type MatchExpression struct {
+	Token lexer.Token // the 'match' token
+	Value Expression
+	Cases []*MatchCase
+}
+
+func (me *MatchExpression) expressionNode()      {}
+func (me *MatchExpression) TokenLiteral() string { return me.Token.Literal }
+func (me *MatchExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(me.TokenLiteral() + " ")
+	out.WriteString(me.Value.String())
+	out.WriteString(" { ")
+	cases := []string{}
+	for _, c := range me.Cases {
+		cases = append(cases, c.String())
+	}
+	out.WriteString(strings.Join(cases, "; "))
+	out.WriteString(" }")
+	return out.String()
+}
+
+// MatchCase represents pattern => expression, with optional guard
+type MatchCase struct {
+	Pattern Expression
+	Guard   Expression // Optional guard condition (if clause)
+	Value   Expression
+}
+
+func (mc *MatchCase) String() string {
+	if mc.Guard != nil {
+		return mc.Pattern.String() + " if " + mc.Guard.String() + " => " + mc.Value.String()
+	}
+	return mc.Pattern.String() + " => " + mc.Value.String()
 }
