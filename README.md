@@ -14,20 +14,20 @@ A minimal, extensible functional programming language that compiles to C.
 
 ```sango
 // Hello World
-fn main(): Int = {
+def main() : int = {
     println("Hello, Sango!")
     0
 }
 
 // Factorial with pattern matching
-fn factorial(n: Int): Int = match n {
+def factorial(n: int) : int = match n {
     0 => 1
     n => n * factorial(n - 1)
 }
 
 // Using C libraries
-#include <math.h>
-fn distance(x: Float, y: Float): Float = 
+include "math.h"
+def distance(x: float, y: float) : float = 
     sqrt(x * x + y * y)
 ```
 
@@ -61,25 +61,25 @@ make
 
 ### Basic Types
 
-- `Int`: 64-bit integer
-- `Float`: 64-bit floating point
-- `Bool`: Boolean
-- `String`: UTF-8 string
-- `Unit`: Unit type (like void)
+- `int`: 64-bit integer
+- `float`: 64-bit floating point
+- `bool`: Boolean
+- `string`: UTF-8 string
+- `void`: Unit type (like void)
 
 ### Function Definition
 
 ```sango
 // Basic function
-fn add(x: Int, y: Int): Int = x + y
+def add(x: int, y: int) : int = x + y
 
-// With type inference
-fn identity(x) = x
+// With type inference (void return)
+def identity(x: int) = x
 
 // Multiple statements
-fn compute(x: Int): Int = {
-    let y = x * 2
-    let z = y + 1
+def compute(x: int) : int = {
+    val y = x * 2
+    val z = y + 1
     z
 }
 ```
@@ -91,7 +91,7 @@ type Option[T] =
     | Some(T)
     | None
 
-fn unwrap(opt: Option[Int], default: Int): Int = match opt {
+def unwrap(opt: Option[int], default: int) : int = match opt {
     Some(x) => x
     None => default
 }
@@ -101,17 +101,17 @@ fn unwrap(opt: Option[Int], default: Int): Int = match opt {
 
 ```sango
 // Include C headers
-#include <stdio.h>
-#include <stdlib.h>
+include "stdio.h"
+include "stdlib.h"
 
 // Use C macros
-#define BUFFER_SIZE 1024
+define BUFFER_SIZE 1024
 
-// Call C functions
-extern fn malloc(size: Int): Ptr[Unit]
-extern fn free(ptr: Ptr[Unit]): Unit
+// Call C functions (future feature)
+extern def malloc(size: int) : ptr[void]
+extern def free(ptr: ptr[void])
 
-// Use C types
+// Use C types (future feature)
 type FILE = extern struct
 ```
 
@@ -146,7 +146,7 @@ sangoc -t program.sango                # Type check only (TODO)
 sangoc -e program.sango                # Emit C code (TODO)
 
 # Version and help
-sangoc -v                              # Show version (v0.1.1)
+sangoc -v                              # Show version (v0.1.2)
 sangoc -h                              # Show help
 ```
 

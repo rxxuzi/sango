@@ -311,20 +311,43 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	return lit
 }
 
-// parseStructLiteral parses struct literals: { name: value, ... } or Type { name: value, ... }
-func (p *Parser) parseStructLiteral() ast.Expression {
-	lit := &ast.StructLiteral{Token: p.curToken}
-
-	if !p.expectPeek(lexer.IDENT) && !p.expectPeek(lexer.RBRACE) {
-		return nil
+// parseBraceExpression parses either struct literals or block statements based on content
+func (p *Parser) parseBraceExpression() ast.Expression {
+	token := p.curToken
+	
+	// Look ahead to determine if this is a struct literal or block statement
+	if p.peekTokenIs(lexer.RBRACE) {
+		// Empty braces - treat as empty struct literal
+		p.nextToken()
+		return &ast.StructLiteral{Token: token, Fields: []*ast.StructField{}}
 	}
-
-	// Check if it's an empty struct literal
-	if p.curTokenIs(lexer.RBRACE) {
-		return lit
+	
+	// Look for identifier followed by colon (struct literal pattern)
+	if p.peekTokenIs(lexer.IDENT) {
+		// Save current position for backtracking
+		currentPos := p.curToken
+		peekPos := p.peekToken
+		
+		p.nextToken() // move to IDENT
+		if p.peekTokenIs(lexer.COLON) {
+			// This is a struct literal: { name: value }
+			return p.parseStructLiteralFromBrace(token)
+		}
+		
+		// Not a struct literal, restore position and parse as block
+		p.curToken = currentPos
+		p.peekToken = peekPos
 	}
+	
+	// Parse as block statement
+	return p.parseBlockStatement()
+}
 
-	// Parse first field
+// parseStructLiteralFromBrace parses struct literals starting from after '{'
+func (p *Parser) parseStructLiteralFromBrace(token lexer.Token) ast.Expression {
+	lit := &ast.StructLiteral{Token: token}
+	
+	// We're already positioned at the first identifier
 	lit.Fields = p.parseStructFields()
 
 	if !p.expectPeek(lexer.RBRACE) {

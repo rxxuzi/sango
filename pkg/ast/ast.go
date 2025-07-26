@@ -171,6 +171,95 @@ func (fs *FunctionStatement) String() string {
 	return out.String()
 }
 
+// IncludeStatement represents include "header.h"
+type IncludeStatement struct {
+	Token lexer.Token // the 'include' token
+	Path  string
+}
+
+func (is *IncludeStatement) statementNode()       {}
+func (is *IncludeStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *IncludeStatement) String() string {
+	return is.TokenLiteral() + " \"" + is.Path + "\""
+}
+
+// TypeStatement represents type aliases: type Name = Type
+type TypeStatement struct {
+	Token lexer.Token // the 'type' token
+	Name  *Identifier
+	Type  *TypeExpression
+}
+
+func (ts *TypeStatement) statementNode()       {}
+func (ts *TypeStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *TypeStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(ts.TokenLiteral() + " ")
+	out.WriteString(ts.Name.String())
+	out.WriteString(" = ")
+	out.WriteString(ts.Type.String())
+	return out.String()
+}
+
+// StructStatement represents struct definitions
+type StructStatement struct {
+	Token  lexer.Token // the 'struct' token
+	Name   *Identifier
+	Fields []*StructField
+}
+
+func (ss *StructStatement) statementNode()       {}
+func (ss *StructStatement) TokenLiteral() string { return ss.Token.Literal }
+func (ss *StructStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(ss.TokenLiteral() + " ")
+	out.WriteString(ss.Name.String())
+	out.WriteString(" { ")
+	fields := []string{}
+	for _, field := range ss.Fields {
+		fields = append(fields, field.String())
+	}
+	out.WriteString(strings.Join(fields, "; "))
+	out.WriteString(" }")
+	return out.String()
+}
+
+// ImplStatement represents implementation blocks
+type ImplStatement struct {
+	Token   lexer.Token // the 'impl' token
+	Type    *Identifier
+	Methods []*FunctionStatement
+}
+
+func (is *ImplStatement) statementNode()       {}
+func (is *ImplStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *ImplStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(is.TokenLiteral() + " ")
+	out.WriteString(is.Type.String())
+	out.WriteString(" { ")
+	methods := []string{}
+	for _, method := range is.Methods {
+		methods = append(methods, method.String())
+	}
+	out.WriteString(strings.Join(methods, "; "))
+	out.WriteString(" }")
+	return out.String()
+}
+
+// DefineStatement represents C-style macro definitions
+type DefineStatement struct {
+	Token lexer.Token // the 'define' token
+	Name  *Identifier
+	Value string // Simple string for now
+}
+
+func (ds *DefineStatement) statementNode()       {}
+func (ds *DefineStatement) TokenLiteral() string { return ds.Token.Literal }
+func (ds *DefineStatement) String() string {
+	return ds.TokenLiteral() + " " + ds.Name.String() + " " + ds.Value
+}
+
 // IntegerLiteral represents an integer literal
 type IntegerLiteral struct {
 	Token lexer.Token

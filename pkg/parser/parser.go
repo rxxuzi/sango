@@ -127,7 +127,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.TILDE, p.parsePrefixExpression)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(lexer.LBRACKET, p.parseArrayLiteral)
-	p.registerPrefix(lexer.LBRACE, p.parseStructLiteral)
+	p.registerPrefix(lexer.LBRACE, p.parseBraceExpression)
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.MATCH, p.parseMatchExpression)
 	p.registerPrefix(lexer.DEF, p.parseFunctionLiteral)
