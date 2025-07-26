@@ -2,37 +2,21 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-
-	"github.com/rxxuzi/sango/pkg/lexer"
 )
 
+const VERSION = "v0.1.1"
+
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <filename.sango> [options]\n", os.Args[0])
-		os.Exit(1)
-	}
-
-	filename := os.Args[1]
+	fmt.Printf("Sango REPL/Interpreter %s\n", VERSION)
+	fmt.Printf("Interactive Sango development environment (under development)\n")
+	fmt.Printf("For compilation, use 'sangoc' instead.\n")
+	fmt.Printf("\nUsage:\n")
+	fmt.Printf("  sangoc <file.sango>     # Compile Sango programs\n")
+	fmt.Printf("  sangoc -h               # Show compiler help\n")
 	
-	// Read the source file
-	source, err := ioutil.ReadFile(filename)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", filename, err)
-		os.Exit(1)
-	}
-
-	// Create lexer
-	l := lexer.New(string(source))
-	
-	// For now, just tokenize and print tokens
-	fmt.Printf("=== Lexing %s ===\n", filename)
-	for {
-		tok := l.NextToken()
-		if tok.Type == lexer.EOF {
-			break
-		}
-		fmt.Printf("%s\n", tok)
+	if len(os.Args) > 1 {
+		fmt.Printf("\nNote: File compilation has moved to 'sangoc'.\n")
+		fmt.Printf("Try: sangoc %s\n", os.Args[1])
 	}
 }

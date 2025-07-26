@@ -138,6 +138,39 @@ func (es *ExpressionStatement) String() string {
 	return ""
 }
 
+// FunctionStatement represents top-level function definitions
+type FunctionStatement struct {
+	Token      lexer.Token // the 'def' token
+	Name       *Identifier
+	Parameters []*Parameter
+	ReturnType *TypeExpression
+	Body       Expression // can be BlockStatement or expression
+}
+
+func (fs *FunctionStatement) statementNode()       {}
+func (fs *FunctionStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *FunctionStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(fs.TokenLiteral() + " ")
+	out.WriteString(fs.Name.String())
+	out.WriteString("(")
+	params := []string{}
+	for _, p := range fs.Parameters {
+		params = append(params, p.String())
+	}
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(")")
+	if fs.ReturnType != nil {
+		out.WriteString(": ")
+		out.WriteString(fs.ReturnType.String())
+	}
+	out.WriteString(" = ")
+	if fs.Body != nil {
+		out.WriteString(fs.Body.String())
+	}
+	return out.String()
+}
+
 // IntegerLiteral represents an integer literal
 type IntegerLiteral struct {
 	Token lexer.Token
@@ -226,12 +259,14 @@ func (ie *InfixExpression) String() string {
 }
 
 // BlockStatement represents { statements }
+// In Sango, blocks can be both statements and expressions
 type BlockStatement struct {
 	Token      lexer.Token // the { token
 	Statements []Statement
 }
 
 func (bs *BlockStatement) statementNode()       {}
+func (bs *BlockStatement) expressionNode()      {} // Blocks can also be expressions in Sango
 func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
@@ -456,5 +491,40 @@ func (tl *TupleLiteral) String() string {
 	out.WriteString("(")
 	out.WriteString(strings.Join(elements, ", "))
 	out.WriteString(")")
+	return out.String()
+}
+
+// StructField represents a field in a struct literal: name: value
+type StructField struct {
+	Name  *Identifier
+	Value Expression
+}
+
+func (sf *StructField) String() string {
+	return sf.Name.String() + ": " + sf.Value.String()
+}
+
+// StructLiteral represents Point { x: 1, y: 2 }
+type StructLiteral struct {
+	Token  lexer.Token // the '{' token
+	Name   *Identifier // optional struct name
+	Fields []*StructField
+}
+
+func (sl *StructLiteral) expressionNode()      {}
+func (sl *StructLiteral) TokenLiteral() string { return sl.Token.Literal }
+func (sl *StructLiteral) String() string {
+	var out bytes.Buffer
+	if sl.Name != nil {
+		out.WriteString(sl.Name.String())
+		out.WriteString(" ")
+	}
+	out.WriteString("{ ")
+	fields := []string{}
+	for _, field := range sl.Fields {
+		fields = append(fields, field.String())
+	}
+	out.WriteString(strings.Join(fields, ", "))
+	out.WriteString(" }")
 	return out.String()
 }

@@ -163,7 +163,7 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			if l.peekChar() == '=' {
 				l.readChar()
-				tok = NewToken(LSHIFTASSIGN, string(ch)+"<<=", tok.Line, tok.Column)
+				tok = NewToken(LSHIFTASSIGN, "<<"+string(l.ch), tok.Line, tok.Column)
 			} else {
 				tok = NewToken(LSHIFT, string(ch)+string(l.ch), tok.Line, tok.Column)
 			}
@@ -180,7 +180,7 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			if l.peekChar() == '=' {
 				l.readChar()
-				tok = NewToken(RSHIFTASSIGN, string(ch)+">>=", tok.Line, tok.Column)
+				tok = NewToken(RSHIFTASSIGN, ">>"+string(l.ch), tok.Line, tok.Column)
 			} else {
 				tok = NewToken(RSHIFT, string(ch)+string(l.ch), tok.Line, tok.Column)
 			}
@@ -211,7 +211,7 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			if l.peekChar() == '=' {
 				l.readChar()
-				tok = NewToken(DOTDOTEQ, string(ch)+"..=", tok.Line, tok.Column)
+				tok = NewToken(DOTDOTEQ, ".."+string(l.ch), tok.Line, tok.Column)
 			} else {
 				tok = NewToken(DOTDOT, string(ch)+string(l.ch), tok.Line, tok.Column)
 			}
