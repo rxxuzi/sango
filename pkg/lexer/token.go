@@ -18,56 +18,56 @@ const (
 	STRING // "hello"
 
 	// Operators
-	PLUS       // +
-	MINUS      // -
-	ASTERISK   // *
-	SLASH      // /
-	PERCENT    // %
-	POWER      // **
-	EQ         // ==
-	NEQ        // !=
-	LT         // <
-	GT         // >
-	LEQ        // <=
-	GEQ        // >=
-	ASSIGN     // =
-	PLUSASSIGN // +=
-	MINUSASSIGN // -=
-	ASTERISKASSIGN // *=
-	SLASHASSIGN // /=
-	PERCENTASSIGN // %=
-	AMPERSAND  // &
-	PIPE       // |
-	CARET      // ^
-	TILDE      // ~
-	LSHIFT     // <<
-	RSHIFT     // >>
+	PLUS            // +
+	MINUS           // -
+	ASTERISK        // *
+	SLASH           // /
+	PERCENT         // %
+	POWER           // **
+	EQ              // ==
+	NEQ             // !=
+	LT              // <
+	GT              // >
+	LEQ             // <=
+	GEQ             // >=
+	ASSIGN          // =
+	PLUSASSIGN      // +=
+	MINUSASSIGN     // -=
+	ASTERISKASSIGN  // *=
+	SLASHASSIGN     // /=
+	PERCENTASSIGN   // %=
+	AMPERSAND       // &
+	PIPE            // |
+	CARET           // ^
+	TILDE           // ~
+	LSHIFT          // <<
+	RSHIFT          // >>
 	AMPERSANDASSIGN // &=
-	PIPEASSIGN // |=
-	CARETASSIGN // ^=
-	LSHIFTASSIGN // <<=
-	RSHIFTASSIGN // >>=
-	AND        // &&
-	OR         // ||
-	NOT        // !
-	ARROW      // ->
-	DARROW     // =>
-	LARROW     // <-
-	DOTDOT     // ..
-	DOTDOTEQ   // ..=
-	AT         // @
+	PIPEASSIGN      // |=
+	CARETASSIGN     // ^=
+	LSHIFTASSIGN    // <<=
+	RSHIFTASSIGN    // >>=
+	AND             // &&
+	OR              // ||
+	NOT             // !
+	ARROW           // ->
+	DARROW          // =>
+	LARROW          // <-
+	DOTDOT          // ..
+	DOTDOTEQ        // ..=
+	AT              // @
 
 	// Delimiters
-	LPAREN    // (
-	RPAREN    // )
-	LBRACE    // {
-	RBRACE    // }
-	LBRACKET  // [
-	RBRACKET  // ]
-	COMMA     // ,
-	SEMICOLON // ;
-	COLON     // :
-	DOT       // .
+	LPAREN     // (
+	RPAREN     // )
+	LBRACE     // {
+	RBRACE     // }
+	LBRACKET   // [
+	RBRACKET   // ]
+	COMMA      // ,
+	SEMICOLON  // ;
+	COLON      // :
+	DOT        // .
 	UNDERSCORE // _
 
 	// Keywords
@@ -103,7 +103,7 @@ const (
 	BOOL_TYPE   // bool
 	STRING_TYPE // string
 	VOID_TYPE   // void
-	
+
 	// Detailed types
 	I8_TYPE   // i8
 	I16_TYPE  // i16
@@ -128,44 +128,44 @@ var tokenStrings = map[TokenType]string{
 	FLOAT:  "FLOAT",
 	STRING: "STRING",
 
-	PLUS:           "+",
-	MINUS:          "-",
-	ASTERISK:       "*",
-	SLASH:          "/",
-	PERCENT:        "%",
-	POWER:          "**",
-	EQ:             "==",
-	NEQ:            "!=",
-	LT:             "<",
-	GT:             ">",
-	LEQ:            "<=",
-	GEQ:            ">=",
-	ASSIGN:         "=",
-	PLUSASSIGN:     "+=",
-	MINUSASSIGN:    "-=",
-	ASTERISKASSIGN: "*=",
-	SLASHASSIGN:    "/=",
-	PERCENTASSIGN:  "%=",
-	AMPERSAND:      "&",
-	PIPE:           "|",
-	CARET:          "^",
-	TILDE:          "~",
-	LSHIFT:         "<<",
-	RSHIFT:         ">>",
+	PLUS:            "+",
+	MINUS:           "-",
+	ASTERISK:        "*",
+	SLASH:           "/",
+	PERCENT:         "%",
+	POWER:           "**",
+	EQ:              "==",
+	NEQ:             "!=",
+	LT:              "<",
+	GT:              ">",
+	LEQ:             "<=",
+	GEQ:             ">=",
+	ASSIGN:          "=",
+	PLUSASSIGN:      "+=",
+	MINUSASSIGN:     "-=",
+	ASTERISKASSIGN:  "*=",
+	SLASHASSIGN:     "/=",
+	PERCENTASSIGN:   "%=",
+	AMPERSAND:       "&",
+	PIPE:            "|",
+	CARET:           "^",
+	TILDE:           "~",
+	LSHIFT:          "<<",
+	RSHIFT:          ">>",
 	AMPERSANDASSIGN: "&=",
-	PIPEASSIGN:     "|=",
-	CARETASSIGN:    "^=",
-	LSHIFTASSIGN:   "<<=",
-	RSHIFTASSIGN:   ">>=",
-	AND:            "&&",
-	OR:             "||",
-	NOT:            "!",
-	ARROW:          "->",
-	DARROW:         "=>",
-	LARROW:         "<-",
-	DOTDOT:         "..",
-	DOTDOTEQ:       "..=",
-	AT:             "@",
+	PIPEASSIGN:      "|=",
+	CARETASSIGN:     "^=",
+	LSHIFTASSIGN:    "<<=",
+	RSHIFTASSIGN:    ">>=",
+	AND:             "&&",
+	OR:              "||",
+	NOT:             "!",
+	ARROW:           "->",
+	DARROW:          "=>",
+	LARROW:          "<-",
+	DOTDOT:          "..",
+	DOTDOTEQ:        "..=",
+	AT:              "@",
 
 	LPAREN:     "(",
 	RPAREN:     ")",
@@ -255,7 +255,7 @@ var keywords = map[string]TokenType{
 	"import":   IMPORT,
 	"define":   DEFINE,
 	"null":     NULL,
-	
+
 	// Basic types
 	"int":    INT_TYPE,
 	"long":   LONG_TYPE,
@@ -264,19 +264,19 @@ var keywords = map[string]TokenType{
 	"bool":   BOOL_TYPE,
 	"string": STRING_TYPE,
 	"void":   VOID_TYPE,
-	
+
 	// Detailed types
-	"i8":     I8_TYPE,
-	"i16":    I16_TYPE,
-	"i32":    I32_TYPE,
-	"i64":    I64_TYPE,
-	"u8":     U8_TYPE,
-	"u16":    U16_TYPE,
-	"u32":    U32_TYPE,
-	"u64":    U64_TYPE,
-	"f32":    F32_TYPE,
-	"f64":    F64_TYPE,
-	"byte":   BYTE_TYPE,
+	"i8":   I8_TYPE,
+	"i16":  I16_TYPE,
+	"i32":  I32_TYPE,
+	"i64":  I64_TYPE,
+	"u8":   U8_TYPE,
+	"u16":  U16_TYPE,
+	"u32":  U32_TYPE,
+	"u64":  U64_TYPE,
+	"f32":  F32_TYPE,
+	"f64":  F64_TYPE,
+	"byte": BYTE_TYPE,
 }
 
 // LookupIdent checks if an identifier is a keyword

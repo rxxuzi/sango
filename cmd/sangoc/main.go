@@ -11,7 +11,7 @@ import (
 	"github.com/rxxuzi/sango/pkg/parser"
 )
 
-const VERSION = "v0.1.3"
+const VERSION = "v0.1.4"
 
 type CompileMode int
 
@@ -21,9 +21,9 @@ const (
 )
 
 type Config struct {
-	mode      CompileMode
-	inputFile string
-	showHelp  bool
+	mode        CompileMode
+	inputFile   string
+	showHelp    bool
 	showVersion bool
 }
 
@@ -152,9 +152,9 @@ Type checking, code generation, and compilation are not yet implemented.
 // Lexical analysis only
 func lexOnly(source, filename string) {
 	fmt.Printf("=== Lexical Analysis of %s ===\n", filename)
-	
+
 	l := lexer.New(source)
-	
+
 	for {
 		tok := l.NextToken()
 		if tok.Type == lexer.EOF {
@@ -167,12 +167,12 @@ func lexOnly(source, filename string) {
 // Parse only
 func parseOnly(source, filename string) {
 	fmt.Printf("=== Parsing %s ===\n", filename)
-	
+
 	l := lexer.New(source)
 	p := parser.New(l)
-	
+
 	program := p.ParseProgram()
-	
+
 	// Check for parser errors
 	errors := p.Errors()
 	if len(errors) > 0 {
@@ -182,6 +182,6 @@ func parseOnly(source, filename string) {
 		}
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("AST:\n%s\n", program.String())
 }

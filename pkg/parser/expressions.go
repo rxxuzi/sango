@@ -16,9 +16,10 @@ func (p *Parser) parseExpression(precedence Precedence) ast.Expression {
 	}
 	leftExp := prefix()
 
-	for !p.peekTokenIs(lexer.SEMICOLON) && !p.peekTokenIs(lexer.RPAREN) && 
-		!p.peekTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.RBRACKET) && 
-		!p.peekTokenIs(lexer.COMMA) && precedence < p.peekPrecedence() {
+	for !p.peekTokenIs(lexer.SEMICOLON) &&
+		!p.peekTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.RBRACKET) &&
+		!p.peekTokenIs(lexer.COMMA) && !p.peekTokenIs(lexer.EOF) &&
+		precedence < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
@@ -39,7 +40,7 @@ func (p *Parser) parseIdentifier() ast.Expression {
 		// In the future, we might want to create a special CFunctionIdentifier node
 		return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
-	
+
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
@@ -86,7 +87,6 @@ func (p *Parser) parseNullLiteral() ast.Expression {
 func (p *Parser) parseWildcardExpression() ast.Expression {
 	return &ast.WildcardExpression{Token: p.curToken}
 }
-
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
 	expression := &ast.PrefixExpression{
@@ -146,11 +146,11 @@ func (p *Parser) parseTupleLiteral(firstElement ast.Expression) ast.Expression {
 
 func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
-	
+
 	// Check if this is a typed empty array like []int
 	if p.peekTokenIs(lexer.RBRACKET) {
 		p.nextToken() // consume ]
-		
+
 		// Check if followed by a type
 		if p.isTypeToken(p.peekToken.Type) {
 			p.nextToken() // move to the type
@@ -158,11 +158,11 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 			// In the future, we might want to store the type information
 			return array
 		}
-		
+
 		// Just an empty array []
 		return array
 	}
-	
+
 	array.Elements = p.parseExpressionList(lexer.RBRACKET)
 	return array
 }
@@ -170,10 +170,10 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 func (p *Parser) isTypeToken(tokenType lexer.TokenType) bool {
 	switch tokenType {
 	case lexer.INT_TYPE, lexer.LONG_TYPE, lexer.FLOAT_TYPE, lexer.DOUBLE_TYPE,
-		 lexer.BOOL_TYPE, lexer.STRING_TYPE, lexer.VOID_TYPE,
-		 lexer.I8_TYPE, lexer.I16_TYPE, lexer.I32_TYPE, lexer.I64_TYPE,
-		 lexer.U8_TYPE, lexer.U16_TYPE, lexer.U32_TYPE, lexer.U64_TYPE,
-		 lexer.F32_TYPE, lexer.F64_TYPE, lexer.BYTE_TYPE:
+		lexer.BOOL_TYPE, lexer.STRING_TYPE, lexer.VOID_TYPE,
+		lexer.I8_TYPE, lexer.I16_TYPE, lexer.I32_TYPE, lexer.I64_TYPE,
+		lexer.U8_TYPE, lexer.U16_TYPE, lexer.U32_TYPE, lexer.U64_TYPE,
+		lexer.F32_TYPE, lexer.F64_TYPE, lexer.BYTE_TYPE:
 		return true
 	default:
 		return false
@@ -209,7 +209,7 @@ func (p *Parser) parseRangeExpression(left ast.Expression) ast.Expression {
 	}
 
 	p.nextToken()
-	
+
 	// Check if there's an end expression
 	if !p.curTokenIs(lexer.RBRACKET) && !p.curTokenIs(lexer.SEMICOLON) && !p.curTokenIs(lexer.RPAREN) {
 		expression.End = p.parseExpression(LOWEST)
@@ -220,7 +220,32 @@ func (p *Parser) parseRangeExpression(left ast.Expression) ast.Expression {
 
 func (p *Parser) parseCallExpression(fn ast.Expression) ast.Expression {
 	exp := &ast.CallExpression{Token: p.curToken, Function: fn}
-	exp.Arguments = p.parseExpressionList(lexer.RPAREN)
+	args := []ast.Expression{}
+
+	// Check if the next token is ')', meaning empty arguments
+	if p.peekTokenIs(lexer.RPAREN) {
+		p.nextToken() // consume ')'
+		exp.Arguments = args
+		return exp
+	}
+
+	// Parse the first argument
+	p.nextToken()
+	args = append(args, p.parseExpression(LOWEST))
+
+	// Parse additional arguments
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // consume comma
+		p.nextToken() // move to next argument
+		args = append(args, p.parseExpression(LOWEST))
+	}
+
+	// Expect the closing ')'
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	exp.Arguments = args
 	return exp
 }
 
@@ -263,12 +288,12 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {
 
 	// Move to the first argument
 	p.nextToken()
-	
-	// Don't try to parse if we're already at the end
+
+	// Check if we immediately hit the end token after moving
 	if p.curTokenIs(end) {
 		return args
 	}
-	
+
 	args = append(args, p.parseExpression(LOWEST))
 
 	// Parse additional arguments separated by commas
@@ -409,39 +434,47 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 // parseBraceExpression parses either struct literals or block statements based on content
 func (p *Parser) parseBraceExpression() ast.Expression {
 	token := p.curToken
-	
+
+	// Push the opening brace onto the bracket stack
+	p.pushBracket(lexer.LBRACE)
+
 	// Look ahead to determine if this is a struct literal or block statement
 	if p.peekTokenIs(lexer.RBRACE) {
 		// Empty braces - treat as empty struct literal
 		p.nextToken()
+		p.popBracket() // pop the matching '{'
 		return &ast.StructLiteral{Token: token, Fields: []*ast.StructField{}}
 	}
-	
+
 	// Look for identifier followed by colon (struct literal pattern)
 	if p.peekTokenIs(lexer.IDENT) {
 		// Save current position for backtracking
 		currentPos := p.curToken
 		peekPos := p.peekToken
-		
+
 		p.nextToken() // move to IDENT
 		if p.peekTokenIs(lexer.COLON) {
 			// This is a struct literal: { name: value }
-			return p.parseStructLiteralFromBrace(token)
+			result := p.parseStructLiteralFromBrace(token)
+			p.popBracket() // pop the matching '{'
+			return result
 		}
-		
+
 		// Not a struct literal, restore position and parse as block
 		p.curToken = currentPos
 		p.peekToken = peekPos
 	}
-	
+
 	// Parse as block statement
-	return p.parseBlockStatement()
+	result := p.parseBlockStatement()
+	p.popBracket() // pop the matching '{'
+	return result
 }
 
 // parseStructLiteralFromBrace parses struct literals starting from after '{'
 func (p *Parser) parseStructLiteralFromBrace(token lexer.Token) ast.Expression {
 	lit := &ast.StructLiteral{Token: token}
-	
+
 	// We're already positioned at the first identifier
 	lit.Fields = p.parseStructFields()
 

@@ -59,6 +59,7 @@ func (i *Identifier) String() string       { return i.Value }
 type ValStatement struct {
 	Token lexer.Token // the token.VAL token
 	Names []*Identifier
+	Type  *TypeExpression // optional type annotation
 	Value Expression
 }
 
@@ -84,6 +85,7 @@ func (vs *ValStatement) String() string {
 type VarStatement struct {
 	Token lexer.Token // the token.VAR token
 	Names []*Identifier
+	Type  *TypeExpression // optional type annotation
 	Value Expression
 }
 
@@ -127,7 +129,7 @@ func (rs *ReturnStatement) String() string {
 type AssignmentStatement struct {
 	Token    lexer.Token // the assignment token
 	Name     *Identifier
-	Operator string      // =, +=, -=, etc.
+	Operator string // =, +=, -=, etc.
 	Value    Expression
 }
 
@@ -283,11 +285,11 @@ func (ds *DefineStatement) String() string {
 
 // ForStatement represents for loops: for x <- iterable { ... } or for i in range { ... }
 type ForStatement struct {
-	Token      lexer.Token // the 'for' token
-	Variable   *Identifier
-	Iterable   Expression
-	Body       *BlockStatement
-	IsInRange  bool // true for 'for i in range', false for 'for x <- iterable'
+	Token     lexer.Token // the 'for' token
+	Variable  *Identifier
+	Iterable  Expression
+	Body      *BlockStatement
+	IsInRange bool // true for 'for i in range', false for 'for x <- iterable'
 }
 
 func (fs *ForStatement) statementNode()       {}
@@ -510,11 +512,11 @@ func (p *Parameter) String() string {
 
 // TypeExpression represents a type annotation
 type TypeExpression struct {
-	Token lexer.Token
-	Name  string
-	Array bool        // true if []Type
-	Tuple []TypeExpression // for tuple types (A, B, C)
-	Function *FunctionType   // for function types (A, B) -> C
+	Token    lexer.Token
+	Name     string
+	Array    bool             // true if []Type
+	Tuple    []TypeExpression // for tuple types (A, B, C)
+	Function *FunctionType    // for function types (A, B) -> C
 }
 
 func (te *TypeExpression) expressionNode()      {}

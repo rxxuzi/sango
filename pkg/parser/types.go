@@ -104,9 +104,9 @@ func (p *Parser) parseFunctionParameters() []*ast.Parameter {
 // parseParenthesizedType handles both tuple types and function parameter lists
 func (p *Parser) parseParenthesizedType() *ast.TypeExpression {
 	type_expr := &ast.TypeExpression{Token: p.curToken}
-	
+
 	p.nextToken() // consume '('
-	
+
 	// Empty parentheses
 	if p.curTokenIs(lexer.RPAREN) {
 		p.nextToken()
@@ -117,12 +117,12 @@ func (p *Parser) parseParenthesizedType() *ast.TypeExpression {
 		// Empty tuple
 		return type_expr
 	}
-	
+
 	// Parse first type
 	var types []ast.TypeExpression
 	firstType := p.parseTypeExpression()
 	types = append(types, *firstType)
-	
+
 	// Parse remaining types
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken() // consume ','
@@ -130,18 +130,18 @@ func (p *Parser) parseParenthesizedType() *ast.TypeExpression {
 		nextType := p.parseTypeExpression()
 		types = append(types, *nextType)
 	}
-	
+
 	if !p.expectPeek(lexer.RPAREN) {
 		return nil
 	}
-	
+
 	// Check what comes after parentheses
 	if p.peekTokenIs(lexer.ARROW) {
 		// This is a function type: (A, B) -> C
 		p.nextToken() // consume '->'
 		return p.parseFunctionType(types)
 	}
-	
+
 	// This is a tuple type: (A, B, C)
 	type_expr.Tuple = types
 	return type_expr
@@ -150,15 +150,15 @@ func (p *Parser) parseParenthesizedType() *ast.TypeExpression {
 // parseFunctionType parses function types: paramTypes -> returnType
 func (p *Parser) parseFunctionType(paramTypes []ast.TypeExpression) *ast.TypeExpression {
 	type_expr := &ast.TypeExpression{Token: p.curToken}
-	
+
 	p.nextToken() // move to return type
 	returnType := p.parseTypeExpression()
-	
+
 	funcType := &ast.FunctionType{
 		Parameters: paramTypes,
 		ReturnType: returnType,
 	}
-	
+
 	type_expr.Function = funcType
 	return type_expr
 }

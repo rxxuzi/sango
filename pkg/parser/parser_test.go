@@ -740,7 +740,7 @@ func testBooleanLiteral(t *testing.T, exp ast.Expression, value bool) bool {
 	if value {
 		expectedLiteral = "true"
 	}
-	
+
 	if bo.TokenLiteral() != expectedLiteral {
 		t.Errorf("bo.TokenLiteral not %s. got=%s", expectedLiteral, bo.TokenLiteral())
 	}

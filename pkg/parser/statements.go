@@ -2,7 +2,7 @@ package parser
 
 import (
 	"bytes"
-	
+
 	"github.com/rxxuzi/sango/pkg/ast"
 	"github.com/rxxuzi/sango/pkg/lexer"
 )
@@ -59,6 +59,13 @@ func (p *Parser) parseValStatement() *ast.ValStatement {
 		stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 	}
 
+	// Check for optional type annotation (val x: Type = ...)
+	if p.peekTokenIs(lexer.COLON) {
+		p.nextToken() // consume ':'
+		p.nextToken() // move to type
+		stmt.Type = p.parseTypeExpression()
+	}
+
 	if !p.expectPeek(lexer.ASSIGN) {
 		return nil
 	}
@@ -91,6 +98,13 @@ func (p *Parser) parseVarStatement() *ast.VarStatement {
 			return nil
 		}
 		stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	}
+
+	// Check for optional type annotation (var x: Type = ...)
+	if p.peekTokenIs(lexer.COLON) {
+		p.nextToken() // consume ':'
+		p.nextToken() // move to type
+		stmt.Type = p.parseTypeExpression()
 	}
 
 	if !p.expectPeek(lexer.ASSIGN) {
@@ -126,11 +140,13 @@ func (p *Parser) parseExpressionStatement() ast.Statement {
 	if p.curTokenIs(lexer.IDENT) && p.isAssignmentOperator(p.peekToken.Type) {
 		return p.parseAssignmentStatement()
 	}
-	
+
 	// Otherwise, it's a regular expression statement
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
 
+	// After expression parsing, we should be positioned correctly
+	// Skip semicolon if present
 	if p.peekTokenIs(lexer.SEMICOLON) {
 		p.nextToken()
 	}
@@ -141,8 +157,8 @@ func (p *Parser) parseExpressionStatement() ast.Statement {
 func (p *Parser) isAssignmentOperator(tokenType lexer.TokenType) bool {
 	switch tokenType {
 	case lexer.ASSIGN, lexer.PLUSASSIGN, lexer.MINUSASSIGN, lexer.ASTERISKASSIGN,
-		 lexer.SLASHASSIGN, lexer.PERCENTASSIGN, lexer.AMPERSANDASSIGN, 
-		 lexer.PIPEASSIGN, lexer.CARETASSIGN, lexer.LSHIFTASSIGN, lexer.RSHIFTASSIGN:
+		lexer.SLASHASSIGN, lexer.PERCENTASSIGN, lexer.AMPERSANDASSIGN,
+		lexer.PIPEASSIGN, lexer.CARETASSIGN, lexer.LSHIFTASSIGN, lexer.RSHIFTASSIGN:
 		return true
 	default:
 		return false
@@ -151,14 +167,14 @@ func (p *Parser) isAssignmentOperator(tokenType lexer.TokenType) bool {
 
 func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
 	stmt := &ast.AssignmentStatement{Token: p.curToken}
-	
+
 	// Parse the identifier being assigned to
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	
+
 	// Move to the assignment operator
 	p.nextToken()
 	stmt.Operator = p.curToken.Literal
-	
+
 	// Parse the value expression
 	p.nextToken()
 	stmt.Value = p.parseExpression(LOWEST)
@@ -249,7 +265,7 @@ func (p *Parser) parseStructStatement() ast.Statement {
 
 	// Parse struct fields
 	stmt.Fields = []*ast.StructField{}
-	
+
 	p.nextToken()
 	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
 		field := p.parseStructFieldDefinition()
@@ -276,7 +292,7 @@ func (p *Parser) parseStructFieldDefinition() *ast.StructField {
 
 	p.nextToken()
 	fieldType := p.parseTypeExpression()
-	
+
 	// For struct definitions, we store the type as a simple identifier expression
 	// This is a simplification for now
 	field.Value = &ast.Identifier{Token: p.curToken, Value: fieldType.String()}
@@ -299,7 +315,7 @@ func (p *Parser) parseImplStatement() ast.Statement {
 
 	// Parse impl methods - simplified for now
 	stmt.Methods = []*ast.FunctionStatement{}
-	
+
 	p.nextToken()
 	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
 		if p.curTokenIs(lexer.DEF) {
@@ -322,10 +338,10 @@ func (p *Parser) parseIncludeStatement() ast.Statement {
 	}
 
 	stmt.Path = p.curToken.Literal
-	
+
 	// Register C functions from the included header
 	p.cRegistry.IncludeHeader(stmt.Path)
-	
+
 	return stmt
 }
 

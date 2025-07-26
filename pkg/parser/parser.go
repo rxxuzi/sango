@@ -36,17 +36,17 @@ const (
 // Operator precedence table
 var precedences = map[lexer.TokenType]Precedence{
 	// Assignment operators (right-associative, lowest precedence)
-	lexer.ASSIGN:         ASSIGN,
-	lexer.PLUSASSIGN:     ASSIGN,
-	lexer.MINUSASSIGN:    ASSIGN,
-	lexer.ASTERISKASSIGN: ASSIGN,
-	lexer.SLASHASSIGN:    ASSIGN,
-	lexer.PERCENTASSIGN:  ASSIGN,
+	lexer.ASSIGN:          ASSIGN,
+	lexer.PLUSASSIGN:      ASSIGN,
+	lexer.MINUSASSIGN:     ASSIGN,
+	lexer.ASTERISKASSIGN:  ASSIGN,
+	lexer.SLASHASSIGN:     ASSIGN,
+	lexer.PERCENTASSIGN:   ASSIGN,
 	lexer.AMPERSANDASSIGN: ASSIGN,
-	lexer.PIPEASSIGN:     ASSIGN,
-	lexer.CARETASSIGN:    ASSIGN,
-	lexer.LSHIFTASSIGN:   ASSIGN,
-	lexer.RSHIFTASSIGN:   ASSIGN,
+	lexer.PIPEASSIGN:      ASSIGN,
+	lexer.CARETASSIGN:     ASSIGN,
+	lexer.LSHIFTASSIGN:    ASSIGN,
+	lexer.RSHIFTASSIGN:    ASSIGN,
 
 	// Logical operators
 	lexer.OR:  OR,
@@ -99,9 +99,12 @@ type Parser struct {
 	// Parsing functions
 	prefixParseFns map[lexer.TokenType]prefixParseFn
 	infixParseFns  map[lexer.TokenType]infixParseFn
-	
+
 	// C function registry
 	cRegistry *cinterop.FunctionRegistry
+	
+	// Bracket tracking stack for proper nesting
+	bracketStack []lexer.TokenType
 }
 
 // Function types for Pratt parsing
@@ -113,9 +116,10 @@ type (
 // New creates a new parser instance
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
-		l:         l,
-		errors:    []string{},
-		cRegistry: cinterop.NewFunctionRegistry(),
+		l:            l,
+		errors:       []string{},
+		cRegistry:    cinterop.NewFunctionRegistry(),
+		bracketStack: []lexer.TokenType{},
 	}
 
 	// Initialize prefix parse functions
@@ -221,17 +225,52 @@ func (p *Parser) expectPeek(t lexer.TokenType) bool {
 
 // Precedence helpers
 func (p *Parser) peekPrecedence() Precedence {
-	if p, ok := precedences[p.peekToken.Type]; ok {
-		return p
+	if prec, ok := precedences[p.peekToken.Type]; ok {
+		return prec
 	}
 	return LOWEST
 }
 
 func (p *Parser) curPrecedence() Precedence {
-	if p, ok := precedences[p.curToken.Type]; ok {
-		return p
+	if prec, ok := precedences[p.curToken.Type]; ok {
+		return prec
 	}
 	return LOWEST
+}
+
+// Bracket stack management
+func (p *Parser) pushBracket(bracket lexer.TokenType) {
+	p.bracketStack = append(p.bracketStack, bracket)
+}
+
+func (p *Parser) popBracket() lexer.TokenType {
+	if len(p.bracketStack) == 0 {
+		return lexer.ILLEGAL
+	}
+	bracket := p.bracketStack[len(p.bracketStack)-1]
+	p.bracketStack = p.bracketStack[:len(p.bracketStack)-1]
+	return bracket
+}
+
+func (p *Parser) peekBracket() lexer.TokenType {
+	if len(p.bracketStack) == 0 {
+		return lexer.ILLEGAL
+	}
+	return p.bracketStack[len(p.bracketStack)-1]
+}
+
+func (p *Parser) isInParentheses() bool {
+	return p.peekBracket() == lexer.LPAREN
+}
+
+// shouldStopExpression determines if expression parsing should stop based on context
+func (p *Parser) shouldStopExpression() bool {
+	// If we see a closing brace, only stop if we're not inside parentheses
+	if p.peekTokenIs(lexer.RBRACE) {
+		// If we're inside parentheses, don't stop for braces
+		return !p.isInParentheses()
+	}
+	return false
 }
 
 // Parser function registration
@@ -265,7 +304,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 // validateProgram checks if the program has required structure for executable Sango programs
 func (p *Parser) validateProgram(program *ast.Program) {
 	hasMainFunction := false
-	
+
 	// Check for main function
 	for _, stmt := range program.Statements {
 		switch s := stmt.(type) {
@@ -273,12 +312,12 @@ func (p *Parser) validateProgram(program *ast.Program) {
 			if fn, ok := s.Expression.(*ast.FunctionLiteral); ok {
 				if fn.Name != nil && fn.Name.Value == "main" {
 					hasMainFunction = true
-					
+
 					// Validate main function signature
 					if len(fn.Parameters) > 1 {
 						p.addError("main function can have at most one parameter (args: []string)")
 					}
-					
+
 					// Check if main has proper signature
 					if len(fn.Parameters) == 1 {
 						param := fn.Parameters[0]
@@ -286,7 +325,7 @@ func (p *Parser) validateProgram(program *ast.Program) {
 							p.addError("main function parameter should have type []string")
 						}
 					}
-					
+
 					break
 				}
 			}
@@ -301,7 +340,7 @@ func (p *Parser) validateProgram(program *ast.Program) {
 
 // isExecutableProgram determines if this looks like an executable program vs library/test code
 func (p *Parser) isExecutableProgram(program *ast.Program) bool {
-	// Simple heuristic: if it has function definitions or more than 3 statements, 
+	// Simple heuristic: if it has function definitions or more than 3 statements,
 	// it's likely meant to be executable
 	functionCount := 0
 	for _, stmt := range program.Statements {
@@ -311,7 +350,7 @@ func (p *Parser) isExecutableProgram(program *ast.Program) bool {
 			}
 		}
 	}
-	
+
 	// If it has multiple functions or is a substantial program, require main
 	return functionCount > 1 || len(program.Statements) > 5
 }

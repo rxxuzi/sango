@@ -11,19 +11,19 @@ var TypeMapping = map[string]string{
 	"unsigned long": "u64",
 	"unsigned char": "u8",
 	"size_t":        "u64",
-	
+
 	// Floating point types
 	"float":  "float",
 	"double": "double",
-	
+
 	// Pointer types
 	"*void":   "*void",
-	"*char":   "*u8",    // C strings
+	"*char":   "*u8", // C strings
 	"*int":    "*int",
 	"*float":  "*float",
 	"*double": "*double",
-	"*FILE":   "*void",  // FILE is typically an opaque pointer
-	
+	"*FILE":   "*void", // FILE is typically an opaque pointer
+
 	// Special types
 	"void": "void",
 	"bool": "bool",
