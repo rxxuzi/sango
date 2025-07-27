@@ -17,9 +17,16 @@ type BlockStmt struct {
 	Statements []SimpleStmt `"{"  @@* "}"`
 }
 
-// SimpleStmt は基本的な文を表現
+// SimpleStmt は基本的な文を表現  
 type SimpleStmt struct {
-	ExpressionStmt *ExprStmt `@@`
+	ValStatement   *ValStmt  `@@`
+	ExpressionStmt *ExprStmt `| @@`
+}
+
+// ValStmt はval文を表現
+type ValStmt struct {
+	Name  string     `"val" @Ident`
+	Value SimpleExpr `"=" @@`
 }
 
 // ExprStmt は式文を表現
@@ -46,6 +53,16 @@ var blockLexer = lexer.MustSimple([]lexer.SimpleRule{
 	// Comments
 	{Name: "comment", Pattern: `//.*|/\*([^*]|\*[^/])*\*/`},
 
+	// Literals (must come before keywords to avoid conflict)
+	{Name: "String", Pattern: `"(?:[^"\\]|\\.)*"`},
+	{Name: "Int", Pattern: `\d+`},
+
+	// Keywords (must come before Ident)
+	{Name: "val", Pattern: `val\b`},
+
+	// Operators
+	{Name: "=", Pattern: `=`},
+
 	// Delimiters
 	{Name: "(", Pattern: `\(`},
 	{Name: ")", Pattern: `\)`},
@@ -54,9 +71,7 @@ var blockLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: ",", Pattern: `,`},
 	{Name: ";", Pattern: `;`},
 
-	// Literals
-	{Name: "Int", Pattern: `\d+`},
-	{Name: "String", Pattern: `"(?:[^"\\]|\\.)*"`},
+	// Identifiers (must come after keywords)
 	{Name: "Ident", Pattern: `[a-zA-Z_][a-zA-Z0-9_]*`},
 
 	// Whitespace
@@ -91,7 +106,17 @@ func (bp *BlockParser) ParseBlockExpression(source string) (*ast.BlockStatement,
 	}
 
 	for _, stmt := range blockStmt.Statements {
-		if stmt.ExpressionStmt != nil {
+		if stmt.ValStatement != nil {
+			// val文をAST形式に変換
+			valStmt := &ast.ValStatement{
+				Token: sangoLexer.Token{Type: sangoLexer.VAL, Literal: "val"},
+				Names: []*ast.Identifier{
+					{Value: stmt.ValStatement.Name},
+				},
+				Value: convertToASTExpression(stmt.ValStatement.Value),
+			}
+			result.Statements = append(result.Statements, valStmt)
+		} else if stmt.ExpressionStmt != nil {
 			expr := stmt.ExpressionStmt.Expression
 
 			var astExpr ast.Expression

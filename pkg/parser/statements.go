@@ -34,6 +34,10 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseForStatement()
 	case lexer.WHILE:
 		return p.parseWhileStatement()
+	case lexer.DEFER:
+		return p.parseDeferStatement()
+	case lexer.ASSERT:
+		return p.parseAssertStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -459,5 +463,39 @@ func (p *Parser) parseWhileStatement() ast.Statement {
 	}
 
 	stmt.Body = p.parseBlockStatement()
+	return stmt
+}
+
+func (p *Parser) parseDeferStatement() ast.Statement {
+	stmt := &ast.DeferStatement{Token: p.curToken}
+
+	p.nextToken()
+	stmt.Expression = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+func (p *Parser) parseAssertStatement() ast.Statement {
+	stmt := &ast.AssertStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	p.nextToken()
+	stmt.Expression = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
 	return stmt
 }

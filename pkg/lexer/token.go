@@ -89,6 +89,7 @@ const (
 	BREAK    // break
 	CONTINUE // continue
 	DEFER    // defer
+	ASSERT   // assert
 	SIZEOF   // sizeof
 	INCLUDE  // include
 	IMPORT   // import
@@ -197,6 +198,7 @@ var tokenStrings = map[TokenType]string{
 	BREAK:    "break",
 	CONTINUE: "continue",
 	DEFER:    "defer",
+	ASSERT:   "assert",
 	SIZEOF:   "sizeof",
 	INCLUDE:  "include",
 	IMPORT:   "import",
@@ -250,6 +252,7 @@ var keywords = map[string]TokenType{
 	"break":    BREAK,
 	"continue": CONTINUE,
 	"defer":    DEFER,
+	"assert":   ASSERT,
 	"sizeof":   SIZEOF,
 	"include":  INCLUDE,
 	"import":   IMPORT,

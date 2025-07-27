@@ -327,6 +327,40 @@ func (ws *WhileStatement) String() string {
 	return out.String()
 }
 
+// DeferStatement represents defer statement: defer expr
+type DeferStatement struct {
+	Token      lexer.Token // the 'defer' token
+	Expression Expression
+}
+
+func (ds *DeferStatement) statementNode()       {}
+func (ds *DeferStatement) TokenLiteral() string { return ds.Token.Literal }
+func (ds *DeferStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(ds.TokenLiteral() + " ")
+	if ds.Expression != nil {
+		out.WriteString(ds.Expression.String())
+	}
+	return out.String()
+}
+
+// AssertStatement represents assert statement: assert expr
+type AssertStatement struct {
+	Token      lexer.Token // the 'assert' token
+	Expression Expression
+}
+
+func (as *AssertStatement) statementNode()       {}
+func (as *AssertStatement) TokenLiteral() string { return as.Token.Literal }
+func (as *AssertStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(as.TokenLiteral() + " ")
+	if as.Expression != nil {
+		out.WriteString(as.Expression.String())
+	}
+	return out.String()
+}
+
 // IntegerLiteral represents an integer literal
 type IntegerLiteral struct {
 	Token lexer.Token
@@ -435,9 +469,11 @@ func (bs *BlockStatement) expressionNode()      {} // Blocks can also be express
 func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
+	out.WriteString("{")
 	for _, s := range bs.Statements {
 		out.WriteString(s.String())
 	}
+	out.WriteString("}")
 	return out.String()
 }
 
