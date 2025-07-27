@@ -80,6 +80,7 @@ var precedences = map[lexer.TokenType]Precedence{
 	// Access operators
 	lexer.LPAREN:   CALL,
 	lexer.LBRACKET: INDEX,
+	lexer.LBRACE:   CALL,
 	lexer.DOT:      DOT,
 
 	// Range operators
@@ -105,6 +106,9 @@ type Parser struct {
 
 	// Bracket tracking stack for proper nesting
 	bracketStack []lexer.TokenType
+	
+	// V2 parsers
+	v2 *V2Parsers
 }
 
 // Function types for Pratt parsing
@@ -141,6 +145,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.MATCH, p.parseMatchExpression)
 	p.registerPrefix(lexer.DEF, p.parseFunctionLiteral)
+	p.registerPrefix(lexer.DOT, p.parseDotFieldExpression)
 
 	// Initialize infix parse functions
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
@@ -167,7 +172,11 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.DOTDOTEQ, p.parseRangeExpression)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 	p.registerInfix(lexer.LBRACKET, p.parseIndexExpression)
+	p.registerInfix(lexer.LBRACE, p.parseStructConstructorExpression)
 	p.registerInfix(lexer.DOT, p.parseDotExpression)
+
+	// Initialize v2 parsers
+	p.initV2Parsers()
 
 	// Read two tokens, so curToken and peekToken are both set
 	p.nextToken()
@@ -292,7 +301,18 @@ func (p *Parser) ParseProgram() *ast.Program {
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
 		}
-		p.nextToken()
+		
+		// Only advance token if we're not at a natural statement boundary
+		// Some statements (like functions with blocks) handle their own token advancement
+		if !p.curTokenIs(lexer.EOF) && 
+		   !p.curTokenIs(lexer.DEF) && 
+		   !p.curTokenIs(lexer.STRUCT) && 
+		   !p.curTokenIs(lexer.TYPE) && 
+		   !p.curTokenIs(lexer.IMPL) &&
+		   !p.curTokenIs(lexer.FOR) &&
+		   !p.curTokenIs(lexer.WHILE) {
+			p.nextToken()
+		}
 	}
 
 	// Validate program structure for executables

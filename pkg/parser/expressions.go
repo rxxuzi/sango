@@ -18,8 +18,33 @@ func (p *Parser) parseExpression(precedence Precedence) ast.Expression {
 
 	for !p.peekTokenIs(lexer.SEMICOLON) &&
 		!p.peekTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.RBRACKET) &&
+		!p.peekTokenIs(lexer.RPAREN) && !p.peekTokenIs(lexer.LBRACE) &&
 		!p.peekTokenIs(lexer.COMMA) && !p.peekTokenIs(lexer.EOF) &&
 		precedence < p.peekPrecedence() {
+		infix := p.infixParseFns[p.peekToken.Type]
+		if infix == nil {
+			return leftExp
+		}
+
+		p.nextToken()
+		leftExp = infix(leftExp)
+	}
+
+	return leftExp
+}
+
+// parseArgumentExpression parses expressions in function call arguments
+func (p *Parser) parseArgumentExpression() ast.Expression {
+	prefix := p.prefixParseFns[p.curToken.Type]
+	if prefix == nil {
+		p.noPrefixParseFnError(p.curToken.Type)
+		return nil
+	}
+	leftExp := prefix()
+
+	// In argument context, stop at ) or ,
+	for !p.peekTokenIs(lexer.RPAREN) && !p.peekTokenIs(lexer.COMMA) && 
+		!p.peekTokenIs(lexer.EOF) && LOWEST < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
@@ -211,7 +236,8 @@ func (p *Parser) parseRangeExpression(left ast.Expression) ast.Expression {
 	p.nextToken()
 
 	// Check if there's an end expression
-	if !p.curTokenIs(lexer.RBRACKET) && !p.curTokenIs(lexer.SEMICOLON) && !p.curTokenIs(lexer.RPAREN) {
+	if !p.curTokenIs(lexer.RBRACKET) && !p.curTokenIs(lexer.SEMICOLON) && 
+	   !p.curTokenIs(lexer.RPAREN) && !p.curTokenIs(lexer.LBRACE) {
 		expression.End = p.parseExpression(LOWEST)
 	}
 
@@ -231,13 +257,13 @@ func (p *Parser) parseCallExpression(fn ast.Expression) ast.Expression {
 
 	// Parse the first argument
 	p.nextToken()
-	args = append(args, p.parseExpression(LOWEST))
+	args = append(args, p.parseArgumentExpression())
 
 	// Parse additional arguments
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken() // consume comma
 		p.nextToken() // move to next argument
-		args = append(args, p.parseExpression(LOWEST))
+		args = append(args, p.parseArgumentExpression())
 	}
 
 	// Expect the closing ')'
@@ -253,7 +279,25 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
 
 	p.nextToken()
-	exp.Index = p.parseExpression(LOWEST)
+	
+	// Check for slice syntax like [..end] or [start..] or [start..end]
+	if p.curTokenIs(lexer.DOTDOT) {
+		// Handle [..end] syntax - create a range expression with nil start
+		rangeExp := &ast.RangeExpression{
+			Token:     p.curToken,
+			Start:     nil, // No start means slice from beginning
+			Inclusive: false,
+		}
+		
+		p.nextToken()
+		if !p.curTokenIs(lexer.RBRACKET) {
+			rangeExp.End = p.parseExpression(LOWEST)
+		}
+		
+		exp.Index = rangeExp
+	} else {
+		exp.Index = p.parseExpression(LOWEST)
+	}
 
 	if !p.expectPeek(lexer.RBRACKET) {
 		return nil
@@ -367,6 +411,11 @@ func (p *Parser) parseMatchExpression() ast.Expression {
 		p.nextToken()
 	}
 
+	// Consume the closing RBRACE
+	if p.curTokenIs(lexer.RBRACE) {
+		p.nextToken()
+	}
+
 	return expr
 }
 
@@ -424,6 +473,7 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	// Function body can be a single expression or block
 	if p.curTokenIs(lexer.LBRACE) {
 		lit.Body = p.parseBlockStatement()
+		// parseBlockStatementFixed already handles RBRACE consumption
 	} else {
 		lit.Body = p.parseExpression(LOWEST)
 	}
@@ -446,15 +496,21 @@ func (p *Parser) parseBraceExpression() ast.Expression {
 		return &ast.StructLiteral{Token: token, Fields: []*ast.StructField{}}
 	}
 
-	// Look for identifier followed by colon (struct literal pattern)
-	if p.peekTokenIs(lexer.IDENT) {
+	// Look for struct literal patterns: { name: value } or { .name = value }
+	if p.peekTokenIs(lexer.IDENT) || p.peekTokenIs(lexer.DOT) {
 		// Save current position for backtracking
 		currentPos := p.curToken
 		peekPos := p.peekToken
 
-		p.nextToken() // move to IDENT
-		if p.peekTokenIs(lexer.COLON) {
+		p.nextToken() // move to IDENT or DOT
+		
+		if p.curTokenIs(lexer.IDENT) && p.peekTokenIs(lexer.COLON) {
 			// This is a struct literal: { name: value }
+			result := p.parseStructLiteralFromBrace(token)
+			p.popBracket() // pop the matching '{'
+			return result
+		} else if p.curTokenIs(lexer.DOT) && p.peekTokenIs(lexer.IDENT) {
+			// This is a struct literal: { .name = value }
 			result := p.parseStructLiteralFromBrace(token)
 			p.popBracket() // pop the matching '{'
 			return result
@@ -471,11 +527,7 @@ func (p *Parser) parseBraceExpression() ast.Expression {
 	return result
 }
 
-// parseBlockExpressionFromBrace parses block expressions starting from after '{'
-func (p *Parser) parseBlockExpressionFromBrace(token lexer.Token) ast.Expression {
-	// Use original parser directly - no v2 parser involvement
-	return p.parseBlockStatement()
-}
+// parseBlockExpressionFromBrace moved to block_parser.go
 
 // parseStructLiteralFromBrace parses struct literals starting from after '{'
 func (p *Parser) parseStructLiteralFromBrace(token lexer.Token) ast.Expression {
@@ -506,7 +558,12 @@ func (p *Parser) parseStructFields() []*ast.StructField {
 
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken()
-		if !p.expectPeek(lexer.IDENT) {
+		// Accept either IDENT or DOT for field names
+		if p.peekTokenIs(lexer.IDENT) {
+			p.nextToken()
+		} else if p.peekTokenIs(lexer.DOT) {
+			p.nextToken()
+		} else {
 			return nil
 		}
 		field := p.parseStructField()
@@ -521,13 +578,24 @@ func (p *Parser) parseStructFields() []*ast.StructField {
 func (p *Parser) parseStructField() *ast.StructField {
 	field := &ast.StructField{}
 
-	if !p.curTokenIs(lexer.IDENT) {
-		return nil
-	}
-
-	field.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	if !p.expectPeek(lexer.COLON) {
+	if p.curTokenIs(lexer.DOT) {
+		// Handle .field = value syntax
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		field.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		
+		if !p.expectPeek(lexer.ASSIGN) {
+			return nil
+		}
+	} else if p.curTokenIs(lexer.IDENT) {
+		// Handle field: value syntax
+		field.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		
+		if !p.expectPeek(lexer.COLON) {
+			return nil
+		}
+	} else {
 		return nil
 	}
 
@@ -535,4 +603,35 @@ func (p *Parser) parseStructField() *ast.StructField {
 	field.Value = p.parseExpression(LOWEST)
 
 	return field
+}
+
+// parseDotFieldExpression parses .field expressions for struct literals
+func (p *Parser) parseDotFieldExpression() ast.Expression {
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	// This represents a field name in struct literal: .fieldName
+	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+// parseStructConstructorExpression parses struct constructor calls like Type { field: value }
+func (p *Parser) parseStructConstructorExpression(left ast.Expression) ast.Expression {
+	// Create a struct literal with the left expression as the name
+	lit := &ast.StructLiteral{Token: p.curToken}
+	
+	// If left is an identifier, use it as the struct name
+	if ident, ok := left.(*ast.Identifier); ok {
+		lit.Name = ident
+	}
+
+	// Parse the struct fields inside the braces
+	p.nextToken() // Move past '{'
+	lit.Fields = p.parseStructFields()
+
+	if !p.expectPeek(lexer.RBRACE) {
+		return nil
+	}
+
+	return lit
 }

@@ -191,22 +191,7 @@ func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
 }
 
 // Block statement parsing
-func (p *Parser) parseBlockStatement() *ast.BlockStatement {
-	block := &ast.BlockStatement{Token: p.curToken}
-	block.Statements = []ast.Statement{}
-
-	p.nextToken() // consume '{'
-
-	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
-		stmt := p.parseStatement()
-		if stmt != nil {
-			block.Statements = append(block.Statements, stmt)
-		}
-		p.nextToken()
-	}
-
-	return block
-}
+// parseBlockStatement moved to block_parser.go
 
 // Enhanced error recovery and synchronization
 func (p *Parser) synchronize() {
@@ -244,10 +229,8 @@ func (p *Parser) parseTypeStatement() ast.Statement {
 
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	if !p.expectPeek(lexer.ASSIGN) {
-		return nil
-	}
-
+	// Parse type directly without expecting ASSIGN token
+	// Supports "type Name Type" syntax (no equals sign)
 	p.nextToken()
 	stmt.Type = p.parseTypeExpression()
 
@@ -327,7 +310,19 @@ func (p *Parser) parseImplStatement() ast.Statement {
 			if method != nil {
 				stmt.Methods = append(stmt.Methods, method)
 			}
+			// After parsing function, advance to next token to continue
+			// Skip any potential semicolons or newlines
+			for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) && !p.curTokenIs(lexer.DEF) {
+				p.nextToken()
+			}
+		} else {
+			// If we're not at a DEF token and not at the end, advance
+			p.nextToken()
 		}
+	}
+
+	// Consume the closing RBRACE
+	if p.curTokenIs(lexer.RBRACE) {
 		p.nextToken()
 	}
 
@@ -407,7 +402,14 @@ func (p *Parser) parseFunctionStatement() *ast.FunctionStatement {
 	}
 
 	p.nextToken()
-	stmt.Body = p.parseExpression(0)
+	
+	// Handle function body - could be expression or block
+	if p.curTokenIs(lexer.LBRACE) {
+		stmt.Body = p.parseBlockStatement()
+		// parseBlockStatementFixed already handles RBRACE consumption
+	} else {
+		stmt.Body = p.parseExpression(0)
+	}
 
 	return stmt
 }
@@ -422,11 +424,13 @@ func (p *Parser) parseForStatement() ast.Statement {
 	stmt.Variable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	// Check for <- or 'in'
-	if p.expectPeek(lexer.LARROW) {
+	if p.peekTokenIs(lexer.LARROW) {
 		// for x <- iterable
+		p.nextToken()
 		stmt.IsInRange = false
-	} else if p.expectPeek(lexer.IN) {
+	} else if p.peekTokenIs(lexer.IN) {
 		// for i in range
+		p.nextToken()
 		stmt.IsInRange = true
 	} else {
 		p.addError("expected '<-' or 'in' after for variable")
@@ -441,6 +445,7 @@ func (p *Parser) parseForStatement() ast.Statement {
 	}
 
 	stmt.Body = p.parseBlockStatement()
+	// parseBlockStatementFixed already handles RBRACE consumption
 	return stmt
 }
 
@@ -463,6 +468,7 @@ func (p *Parser) parseWhileStatement() ast.Statement {
 	}
 
 	stmt.Body = p.parseBlockStatement()
+	// parseBlockStatementFixed already handles RBRACE consumption
 	return stmt
 }
 
