@@ -191,7 +191,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
 
-	p.nextToken()
+	p.nextToken() // consume '{'
 
 	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
 		stmt := p.parseStatement()

@@ -102,7 +102,7 @@ type Parser struct {
 
 	// C function registry
 	cRegistry *cinterop.FunctionRegistry
-	
+
 	// Bracket tracking stack for proper nesting
 	bracketStack []lexer.TokenType
 }

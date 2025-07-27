@@ -11,7 +11,7 @@ import (
 	"github.com/rxxuzi/sango/pkg/parser"
 )
 
-const VERSION = "v0.1.4"
+const VERSION = "v0.1.5"
 
 type CompileMode int
 

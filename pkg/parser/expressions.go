@@ -2,9 +2,11 @@ package parser
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/rxxuzi/sango/pkg/ast"
 	"github.com/rxxuzi/sango/pkg/lexer"
+	v2 "github.com/rxxuzi/sango/pkg/parser/v2"
 )
 
 // Expression parsing using Pratt parsing
@@ -465,10 +467,53 @@ func (p *Parser) parseBraceExpression() ast.Expression {
 		p.peekToken = peekPos
 	}
 
-	// Parse as block statement
-	result := p.parseBlockStatement()
+	// Parse as block expression
+	result := p.parseBlockExpressionFromBrace(token)
 	p.popBracket() // pop the matching '{'
 	return result
+}
+
+// parseBlockExpressionFromBrace parses block expressions starting from after '{'
+func (p *Parser) parseBlockExpressionFromBrace(token lexer.Token) ast.Expression {
+	// Collect the block content for v2 parser
+	var blockContent strings.Builder
+	blockContent.WriteString("{")
+
+	// Keep track of brace depth
+	braceDepth := 1
+	startToken := p.curToken
+
+	for braceDepth > 0 && !p.curTokenIs(lexer.EOF) {
+		p.nextToken()
+
+		if p.curTokenIs(lexer.LBRACE) {
+			braceDepth++
+		} else if p.curTokenIs(lexer.RBRACE) {
+			braceDepth--
+		}
+
+		if braceDepth > 0 {
+			blockContent.WriteString(" " + p.curToken.Literal)
+		}
+	}
+	blockContent.WriteString(" }")
+
+	// Use v2 parser to parse the block
+	v2Parser, err := v2.NewBlockParser()
+	if err != nil {
+		// Fallback to original parsing
+		p.curToken = startToken
+		return p.parseBlockStatement()
+	}
+
+	blockAST, err := v2Parser.ParseBlockExpression(blockContent.String())
+	if err != nil {
+		// Fallback to original parsing
+		p.curToken = startToken
+		return p.parseBlockStatement()
+	}
+
+	return blockAST
 }
 
 // parseStructLiteralFromBrace parses struct literals starting from after '{'
