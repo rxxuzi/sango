@@ -52,6 +52,8 @@ func (p *Parser) isStatementStartToken() bool {
 		   p.curTokenIs(lexer.FOR) ||
 		   p.curTokenIs(lexer.WHILE) ||
 		   p.curTokenIs(lexer.RETURN) ||
-		   p.curTokenIs(lexer.MATCH)
-		   // Don't include IDENT as it's too broad and causes infinite loops
+		   p.curTokenIs(lexer.MATCH) ||
+		   p.curTokenIs(lexer.DEFER) ||
+		   p.curTokenIs(lexer.ASSERT) ||
+		   (p.curTokenIs(lexer.IDENT) && p.isAssignmentOperator(p.peekToken.Type))
 }

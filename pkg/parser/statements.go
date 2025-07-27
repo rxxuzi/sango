@@ -290,29 +290,71 @@ func (p *Parser) parseStructFieldDefinition() *ast.StructField {
 func (p *Parser) parseImplStatement() ast.Statement {
 	stmt := &ast.ImplStatement{Token: p.curToken}
 
-	if !p.expectPeek(lexer.IDENT) {
+	p.nextToken() // Move past 'impl'
+
+	// Handle pointer types: *, &
+	isPointer := false
+	isReference := false
+	
+	if p.curTokenIs(lexer.ASTERISK) {
+		isPointer = true
+		p.nextToken() // Move past '*'
+	} else if p.curTokenIs(lexer.AMPERSAND) {
+		isReference = true
+		p.nextToken() // Move past '&'
+	}
+
+	if !p.curTokenIs(lexer.IDENT) {
+		p.addError("expected type name after impl")
 		return nil
 	}
 
-	stmt.Type = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	// Create type identifier with receiver type info
+	typeName := p.curToken.Literal
+	fullTypeName := typeName
+	if isPointer {
+		fullTypeName = "*" + typeName
+	} else if isReference {
+		fullTypeName = "&" + typeName
+	}
+	
+	stmt.Type = &ast.Identifier{Token: p.curToken, Value: fullTypeName}
+	
+	// Set receiver info
+	stmt.ReceiverInfo = &ast.ReceiverInfo{
+		TypeName: typeName,
+	}
+	if isPointer {
+		stmt.ReceiverInfo.Type = ast.PointerReceiver
+	} else if isReference {
+		stmt.ReceiverInfo.Type = ast.ReferenceReceiver
+	} else {
+		stmt.ReceiverInfo.Type = ast.ValueReceiver
+	}
 
 	if !p.expectPeek(lexer.LBRACE) {
 		return nil
 	}
 
-	// Parse impl methods - simplified for now
+	// Parse impl methods directly using main parser
 	stmt.Methods = []*ast.FunctionStatement{}
 
-	p.nextToken()
+	p.nextToken() // consume '{'
 	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+		// Skip semicolons and newlines
+		if p.curTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+			continue
+		}
+
 		if p.curTokenIs(lexer.DEF) {
 			method := p.parseFunctionStatement()
 			if method != nil {
 				stmt.Methods = append(stmt.Methods, method)
 			}
-			// After parsing function, advance to next token to continue
-			// Skip any potential semicolons or newlines
-			for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) && !p.curTokenIs(lexer.DEF) {
+			// After parsing function, we should be positioned correctly
+			// Only advance if we're not at a logical boundary
+			if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.DEF) && !p.curTokenIs(lexer.EOF) {
 				p.nextToken()
 			}
 		} else {
@@ -406,7 +448,7 @@ func (p *Parser) parseFunctionStatement() *ast.FunctionStatement {
 	// Handle function body - could be expression or block
 	if p.curTokenIs(lexer.LBRACE) {
 		stmt.Body = p.parseBlockStatement()
-		// parseBlockStatementFixed already handles RBRACE consumption
+		// parseBlockStatement handles RBRACE consumption
 	} else {
 		stmt.Body = p.parseExpression(0)
 	}

@@ -276,28 +276,16 @@ func (p *Parser) parseCallExpression(fn ast.Expression) ast.Expression {
 }
 
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
-	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
-
-	p.nextToken()
-	
-	// Check for slice syntax like [..end] or [start..] or [start..end]
-	if p.curTokenIs(lexer.DOTDOT) {
-		// Handle [..end] syntax - create a range expression with nil start
-		rangeExp := &ast.RangeExpression{
-			Token:     p.curToken,
-			Start:     nil, // No start means slice from beginning
-			Inclusive: false,
-		}
-		
-		p.nextToken()
-		if !p.curTokenIs(lexer.RBRACKET) {
-			rangeExp.End = p.parseExpression(LOWEST)
-		}
-		
-		exp.Index = rangeExp
-	} else {
-		exp.Index = p.parseExpression(LOWEST)
+	// Check if this is a slice operation by looking ahead
+	if p.peekTokenIs(lexer.DOTDOT) || p.peekTokenIs(lexer.DOTDOTEQ) {
+		// Use v2 slice parser for complex slice operations
+		return p.v2.Array.ParseSliceExpression(p, left, p.curToken)
 	}
+	
+	// Regular index expression
+	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
+	p.nextToken()
+	exp.Index = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(lexer.RBRACKET) {
 		return nil
@@ -557,14 +545,20 @@ func (p *Parser) parseStructFields() []*ast.StructField {
 	}
 
 	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken()
+		p.nextToken() // consume comma
+		
+		// Check for trailing comma
+		if p.peekTokenIs(lexer.RBRACE) {
+			break
+		}
+		
 		// Accept either IDENT or DOT for field names
 		if p.peekTokenIs(lexer.IDENT) {
 			p.nextToken()
 		} else if p.peekTokenIs(lexer.DOT) {
 			p.nextToken()
 		} else {
-			return nil
+			return fields // Not an error, just end of fields
 		}
 		field := p.parseStructField()
 		if field != nil {
@@ -613,6 +607,32 @@ func (p *Parser) parseDotFieldExpression() ast.Expression {
 
 	// This represents a field name in struct literal: .fieldName
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+// parseTypeIdentifier parses primitive type identifiers as expressions
+func (p *Parser) parseTypeIdentifier() ast.Expression {
+	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+// parseSizeofExpression parses sizeof(type) expressions
+func (p *Parser) parseSizeofExpression() ast.Expression {
+	expression := &ast.PrefixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+	}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	p.nextToken()
+	expression.Right = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return expression
 }
 
 // parseStructConstructorExpression parses struct constructor calls like Type { field: value }

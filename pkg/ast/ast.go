@@ -249,9 +249,10 @@ func (ss *StructStatement) String() string {
 
 // ImplStatement represents implementation blocks
 type ImplStatement struct {
-	Token   lexer.Token // the 'impl' token
-	Type    *Identifier
-	Methods []*FunctionStatement
+	Token        lexer.Token // the 'impl' token
+	Type         *Identifier
+	ReceiverInfo *ReceiverInfo // Parsed receiver type information
+	Methods      []*FunctionStatement
 }
 
 func (is *ImplStatement) statementNode()       {}
@@ -548,17 +549,22 @@ func (p *Parameter) String() string {
 
 // TypeExpression represents a type annotation
 type TypeExpression struct {
-	Token    lexer.Token
-	Name     string
-	Array    bool             // true if []Type
-	Tuple    []TypeExpression // for tuple types (A, B, C)
-	Function *FunctionType    // for function types (A, B) -> C
+	Token       lexer.Token
+	Name        string
+	Array       bool               // true if []Type
+	ElementType *TypeExpression    // for array element type
+	Tuple       []TypeExpression   // for tuple types (A, B, C)
+	Function    *FunctionType      // for function types (A, B) -> C
+	Record      *RecordType        // for record types { field: type }
 }
 
 func (te *TypeExpression) expressionNode()      {}
 func (te *TypeExpression) TokenLiteral() string { return te.Token.Literal }
 func (te *TypeExpression) String() string {
 	if te.Array {
+		if te.ElementType != nil {
+			return "[]" + te.ElementType.String()
+		}
 		return "[]" + te.Name
 	}
 	if len(te.Tuple) > 0 {
@@ -571,6 +577,9 @@ func (te *TypeExpression) String() string {
 	if te.Function != nil {
 		return te.Function.String()
 	}
+	if te.Record != nil {
+		return te.Record.String()
+	}
 	return te.Name
 }
 
@@ -578,6 +587,23 @@ func (te *TypeExpression) String() string {
 type FunctionType struct {
 	Parameters []TypeExpression
 	ReturnType *TypeExpression
+}
+
+// RecordType represents { field: type, ... }
+type RecordType struct {
+	Fields map[string]*TypeExpression
+}
+
+func (rt *RecordType) String() string {
+	var out bytes.Buffer
+	out.WriteString("{ ")
+	fields := []string{}
+	for name, fieldType := range rt.Fields {
+		fields = append(fields, name + ": " + fieldType.String())
+	}
+	out.WriteString(strings.Join(fields, ", "))
+	out.WriteString(" }")
+	return out.String()
 }
 
 func (ft *FunctionType) String() string {

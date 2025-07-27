@@ -14,18 +14,28 @@ func (p *Parser) parseTypeExpression() *ast.TypeExpression {
 		if p.peekTokenIs(lexer.RBRACKET) {
 			// Dynamic array []T
 			p.nextToken() // consume ]
-			p.nextToken() // move to type
+			p.nextToken() // move to element type
 			type_expr.Array = true
-			type_expr.Name = p.curToken.Literal
+			// Recursively parse element type (could be another array)
+			elementType := p.parseTypeExpression()
+			if elementType != nil {
+				type_expr.Name = elementType.String()
+				type_expr.ElementType = elementType
+			}
 		} else {
 			// Fixed size array [N]T - for now treat as dynamic
 			for !p.curTokenIs(lexer.RBRACKET) {
 				p.nextToken()
 			}
 			p.nextToken() // consume ]
-			p.nextToken() // move to type
+			p.nextToken() // move to element type
 			type_expr.Array = true
-			type_expr.Name = p.curToken.Literal
+			// Recursively parse element type
+			elementType := p.parseTypeExpression()
+			if elementType != nil {
+				type_expr.Name = elementType.String()
+				type_expr.ElementType = elementType
+			}
 		}
 		return type_expr
 	}
@@ -33,6 +43,11 @@ func (p *Parser) parseTypeExpression() *ast.TypeExpression {
 	// Handle parenthesized types - could be tuple or function parameters
 	if p.curTokenIs(lexer.LPAREN) {
 		return p.parseParenthesizedType()
+	}
+	
+	// Handle record types { field: type, ... }
+	if p.curTokenIs(lexer.LBRACE) {
+		return p.parseRecordType()
 	}
 
 	// Handle function types (A, B) -> C
@@ -160,5 +175,53 @@ func (p *Parser) parseFunctionType(paramTypes []ast.TypeExpression) *ast.TypeExp
 	}
 
 	type_expr.Function = funcType
+	return type_expr
+}
+
+// parseRecordType parses record types: { field: type, ... }
+func (p *Parser) parseRecordType() *ast.TypeExpression {
+	type_expr := &ast.TypeExpression{Token: p.curToken}
+	type_expr.Record = &ast.RecordType{Fields: make(map[string]*ast.TypeExpression)}
+	
+	p.nextToken() // consume '{'
+	
+	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+		// Parse field name
+		if !p.curTokenIs(lexer.IDENT) {
+			p.addError("expected field name in record type")
+			return nil
+		}
+		fieldName := p.curToken.Literal
+		
+		// Expect ':'
+		if !p.expectPeek(lexer.COLON) {
+			return nil
+		}
+		
+		// Parse field type
+		p.nextToken() // move to type
+		fieldType := p.parseTypeExpression()
+		if fieldType == nil {
+			return nil
+		}
+		
+		type_expr.Record.Fields[fieldName] = fieldType
+		
+		// Check for comma or end
+		p.nextToken()
+		if p.curTokenIs(lexer.COMMA) {
+			p.nextToken() // consume comma and continue
+		} else if !p.curTokenIs(lexer.RBRACE) {
+			p.addError("expected ',' or '}' in record type")
+			return nil
+		}
+	}
+	
+	// Consume closing '}'
+	if !p.curTokenIs(lexer.RBRACE) {
+		p.addError("expected '}' to close record type")
+		return nil
+	}
+	
 	return type_expr
 }

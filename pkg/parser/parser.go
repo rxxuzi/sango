@@ -146,6 +146,27 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.MATCH, p.parseMatchExpression)
 	p.registerPrefix(lexer.DEF, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.DOT, p.parseDotFieldExpression)
+	p.registerPrefix(lexer.SIZEOF, p.parseSizeofExpression)
+	
+	// Register primitive type tokens as prefix parsers
+	p.registerPrefix(lexer.INT_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.LONG_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.FLOAT_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.DOUBLE_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.BOOL_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.STRING_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.VOID_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.I8_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.I16_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.I32_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.I64_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.U8_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.U16_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.U32_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.U64_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.F32_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.F64_TYPE, p.parseTypeIdentifier)
+	p.registerPrefix(lexer.BYTE_TYPE, p.parseTypeIdentifier)
 
 	// Initialize infix parse functions
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
